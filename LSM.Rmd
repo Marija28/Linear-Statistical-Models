@@ -1,0 +1,547 @@
+---
+title: "Linear Statistical Analysis"
+output: html_notebook
+---
+
+A little about the data. In this project we have the "Denver Neighborhoods" data where we have information from 44 different neighborhoods in Denver. 
+
+Information that we have:
+X1 - total population (in 1000s)
+X2 - percentage of changes in population
+X3 - percentage of children (under age of 18) in the population
+X4 - number of schools that have free lunch
+X5 - percentage of changes in the household's income
+X6 - crime rate
+X7 - percentage of changes in crime rate
+
+The task is to find the best linear statistical model for predicting percentage of children in population .
+
+```{r}
+# install.packages("xlsx")
+library(xlsx)
+mine_data <- read.xlsx("Denver_Neighborhoods.xlsx", 1, header = TRUE)
+
+```
+
+
+```{r}
+head(mine_data)
+attach(mine_data)
+summary(mine_data) 
+
+```
+
+There are no missing values.
+
+Visualization of X3 (dependent variable).
+```{r}
+par(mfrow=c(1,2))
+hist(X3, main="Percentage of children", ylab="Frequency", xlab="% of children", col = 'powderblue')
+# histogram of sample density, "sample density" 
+plot(density(X3), main="Sample Density", ylab="density")
+polygon(density(X3),  col = 'salmon')
+par(mfrow=c(1,1))
+```
+
+
+```{r}
+par(mfrow=c(1,2))
+plot(sort(X3),pch=".", main="Graph of Sorted Data", ylab="Sorted data")
+# checking for normality of X1
+qqnorm(X3)
+qqline(X3)
+# it doesn't seem normal
+par(mfrow=c(1,1))
+
+```
+
+
+
+Histograms and sample densities of columns X2 to X7.
+
+```{r}
+par(mfrow=c(2,3))
+# X1 
+hist(X1, main="Histogram of population", ylab="Frequency", xlab="population", prob=TRUE, col ='powderblue')
+lines(density(X1),lwd=2) # density
+# X2
+hist(X2, main="Change in Population, in %", ylab="Frequency", xlab="% of change", prob=TRUE, col ='powderblue')
+lines(density(X2),lwd=2) # density
+# X4
+hist(X4, main="% of schools that have free lunch", ylab="Frequency", xlab="% schools", prob=TRUE, col ='powderblue')
+lines(density(X4),lwd=2) # density
+# X5
+hist(X5, main="Income of household", ylab="Frequency", xlab="% of households", prob=TRUE, col ='powderblue')
+lines(density(X5),lwd=2) # density
+# X6 
+hist(X6, main="Crime rate", ylab="Frequency", xlab="crime rate", prob=TRUE, col ='powderblue')
+lines(density(X6),lwd=2) # density
+# X7
+hist(X7, main="% of change in crime rate", ylab="Frequency", xlab="% of crime rate", prob=TRUE, col ='powderblue')
+lines(density(X7),lwd=2) # density
+par(mfrow=c(1,1))
+
+```
+
+
+
+Pairwise comparison.
+
+```{r}
+# install.packages('GGally')
+library(GGally)
+
+ggpairs(data=mine_data,
+        diag = list(continious = wrap("densityDiag", fill = 'powderblue')),
+        lower=list(continuous=wrap("smooth", color="tomato2")))
+
+
+```
+
+
+Checking Q-Q plot for normality of different variables.
+
+```{r}
+par(mfrow=c(2,3))
+qqnorm(X1, main = 'Normal Q-Q plot for X1', col = 'tomato2')
+qqline(X1)
+qqnorm(X2, main = 'Normal Q-Q plot for X2', col = 'turquoise')
+qqline(X2)
+qqnorm(X4, main = 'Normal Q-Q plot for X4', col = 'yellowgreen')
+qqline(X4)
+qqnorm(X5, main = 'Normal Q-Q plot for X5', col = 'dodgerblue')
+qqline(X5)
+qqnorm(X6, main = 'Normal Q-Q plot for X6', col = 'firebrick2')
+qqline(X6)
+qqnorm(X7, main = 'Normal Q-Q plot for X7', col = 'gold2')
+qqline(X7)
+par(mfrow=c(1,1))
+```
+
+
+Linear regression - Trying to see how "% of children" depends of different variables.
+
+Making the first model with all predictors.
+ 
+ 
+```{r}
+model1<-lm(X3~X1+X2+X4+X5+X6+X7,data=mine_data)
+summary(model1)
+
+```
+
+Plotting residuals.
+
+```{r}
+par(mfrow=c(1,2))
+plot(rstudent(model1), resid(model1), pch=21, bg='powderblue', cex=1)
+qqline(resid(model1))
+qqnorm(resid(model1))
+qqline(resid(model1))
+par(mfrow=c(1,1))
+
+```
+
+Checking for the outliers.
+
+```{r}
+# install.packages('car')
+library(car)
+outlierTest(model1)
+```
+
+Since p-value is small => reject Ho => There isn't significant evidence to say that this value is outlier.
+Calculated observation isn't an outlier.
+
+
+Checking for influential observations with Cook's distance.
+
+```{r}
+cook<-cooks.distance(model1)
+mine_data[which.max(cook),]
+```
+
+
+For observation 7 (7th row) the Cook's distance is the largest. 
+
+
+Making the new model without 7th observation.
+
+```{r}
+data1 <- mine_data[-7,]
+attach(data1)
+model2 <-lm(X3~X1+X2+X4+X5+X6+X7,data=data1)
+summary(model2)
+```
+
+Comparing coefficients of two models.
+
+```{r}
+model1$coefficients
+```
+
+
+```{r}
+model2$coefficients
+```
+
+We see that coefficients for X1 and X5 changed a lot, which means that observation 7 has significant impact on results, and as it has a 
+large Cook's distance, it is better to remove this observation from the data.
+
+
+Checking for assumptions of the residuals for model2.
+
+a) Var(resid) = constant ? 
+
+We can see this on the graph of the residuals or using Breusch-Pagan test.
+
+```{r}
+plot(fitted(model2),residuals(model2),xlab="Fitted",ylab="Residuals") 
+abline(h=0)
+```
+
+From the graph it seems like variance of residuals is constant.
+
+
+```{r}
+# install.packages("lmtest") 
+library(lmtest) 
+# Breusch-Pagan test 
+# H0: Var(resid) = const. 
+bptest(model2)
+```
+
+p-value is big (>0.05) => fail to reject H0 => There is enough evidence to say that variance of residuals is the same for all observations. 
+We confirmed the conclusion from the graph.
+
+b) resid ~ Normal Distribution ? 
+
+```{r}
+qqnorm(residuals(model2),ylab="Residuals")
+qqline(residuals(model2)) 
+```
+
+
+
+```{r}
+library(stats)
+shapiro.test(residuals(model2))
+```
+
+p-value for Shapiro - Wilk's test is small (<0.05) => reject H0 => Residuals are not normally distributed.
+
+Normality assumption fails => model2 isn't a good model.
+We should do transformation of the data. We can try with log transformation. 
+
+
+But, before doing a transformation, we can also look for alternative models (that we can get using step function and AIC value) and check their assumptions.
+
+```{r}
+step(model2)
+```
+
+Step function give us the best linear regression model for the data. In this case, that model has only 3 predictors X4, X6 and X7.
+
+```{r}
+model_step <- lm(X3 ~ X4 + X6 + X7, data = data1)
+summary(model_step)
+```
+
+
+Checking for assumptions of the residuals for model2.
+
+a) Var(resid) = constant ? 
+
+We can see this on the graph of the residuals or using Breusch-Pagan test.
+
+```{r}
+plot(fitted(model_step),residuals(model_step),xlab="Fitted",ylab="Residuals")  
+abline(h=0)
+```
+
+Breusch-Pagan test
+Ho: Dispersion of the residuals is the same for the all observations
+
+```{r}
+bptest(model_step)
+```
+
+p-value = 0.3779 > 0.05 => Fail to reject Ho => Dispersion is constant.
+
+b) Normality of the residuals
+
+```{r}
+qqnorm(residuals(model_step), ylab = "Residuals")
+qqline(residuals(model_step))
+```
+
+```{r}
+shapiro.test(residuals(model_step))
+```
+
+p = 0.1074 > 0.05
+From the Q-Q plot and Shapiro-Wilk test we see that residuals are normally distributed.
+
+Checking for the correlation of residuals.
+
+```{r}
+par(mfrow=c(1,2)) 
+plot(residuals(model_step), ylab="Residuals") 
+abline(h=0, lwd=2) 
+cor(residuals(model_step),seq(1:43))
+
+plot(residuals(model_step)[-43], residuals(model_step)[-1], xlab=expression(hat(epsilon)[i]), ylab=expression(hat(epsilon)[i+1]))  
+cor(residuals(model_step)[-1], residuals(model_step)[-43])
+```
+Correlation coefficient is close to 0 => there isn't correlation.
+
+We can also check correlation using Durbin-Watson test.
+
+```{r}
+dwtest(model_step)
+```
+p > 0.05 => Fail to reject Ho => We confirmed that there is no correlation.
+
+"model_step" satisfies all assumptions.
+
+
+Now we are going to transform the data and make new models.
+
+```{r}
+# install.packages("MASS") ]
+library(MASS)
+boxcox(model2, plotit = T, lambda = seq(0, 3.5, by = 0.5))
+```
+
+```{r}
+lambda <- 1.7
+y = (X3^lambda - 1)/lambda
+boxcoxmodel <- lm(y~X1+X2+X4+X5+X6+X7, data = data1)
+summary(boxcoxmodel)
+```
+
+
+
+Alternative models using AIC (Akaik's Information Criterion)
+We are looking for a model with the most appropriate independent variables.
+
+
+```{r}
+step(boxcoxmodel)
+```
+
+The best model using step function and AIC value is model with X2, X4, X6 and X7 as predictors.
+
+```{r}
+model3 <- lm(y~X2+X4+X6+X7, data = data1)
+summary(model3)
+```
+
+We see that X2 isn't significant so we will remove it from the model.
+
+```{r}
+model4 <- lm(y~X4+X6+X7, data = data1)
+summary(model4)
+```
+
+Now every predictor is significant.
+
+We need to check the assumptions.
+
+
+a) Is the variance constant?
+
+```{r}
+plot(fitted(model4),residuals(model4),xlab="Fitted",ylab="Residuals") 
+abline(h=0)
+
+```
+
+
+From the graph we can see that variance is constant.
+
+
+We can also check this using Breusch-Pagan test.
+Ho: Dispersion of residuals is constant.
+
+```{r}
+bptest(model4)
+```
+
+p-value is big (>0.05) => fail to reject H0 => There is enough evidence to say that variance of residuals is the same for all observations. 
+We confirmed the conclusion from the graph.
+
+b) resid ~ Normal Distribution ? 
+
+```{r}
+qqnorm(residuals(model4),ylab="Residuals")
+qqline(residuals(model4)) 
+```
+
+
+
+```{r}
+library(stats)
+shapiro.test(residuals(model4))
+```
+
+p-value for Shapiro - Wilk's test is big (>0.05) => reject H0 => Residuals are normally distributed.
+
+Checking for the correlation of residuals.
+
+```{r}
+par(mfrow=c(1,2)) 
+plot(residuals(model4), ylab="Residuals") 
+abline(h=0, lwd=2) 
+cor(residuals(model4),seq(1:43))
+
+plot(residuals(model4)[-43], residuals(model4)[-1], xlab=expression(hat(epsilon)[i]), ylab=expression(hat(epsilon)[i+1]))  
+cor(residuals(model4)[-1], residuals(model4)[-43])
+```
+Correlation coefficient is close to 0 => there isn't correlation.
+
+We can also check correlation using Durbin-Watson test.
+
+```{r}
+dwtest(model4)
+```
+
+p > 0.05 => Fail to reject Ho => We confirmed that there is no correlation.
+
+model4 satisfies all assumptions.
+
+Because both model_step and model4 satisfied all the assumptions, we can check which model has bigger R-squared value.
+
+```{r}
+summary(model_step)$r.squared
+summary(model4)$r.squared
+```
+
+model4 has bigger R-squared value => better model is model4.
+
+
+Making alternative models using adjusted R^2.
+
+First we can try this on the original data, then on the transformed one.
+
+```{r}
+# install.packages("leaps")
+library(leaps)
+b<-regsubsets(X3~.,data=data1)     
+(rs <- summary(b))
+```
+
+```{r}
+rs$adjr2
+plot(1:6,rs$adjr2,xlab="No. of Parameters",ylab="Adjusted R-square")
+```
+
+
+
+As the biggest adjusted R^2 is for 4 parameter, we are going to make the model with four parameters.
+
+
+If we want model with 3 parameters that model should be
+X3 ~ X2 + X4 + X6 + X7
+
+```{r}
+model5 <- lm(X3 ~ X2 + X4 + X6 + X7, data = data1)
+summary(model5)
+```
+
+We can see that parameter X2 isn't significant and as model with 3 parameters has adjusted R^2 close to the adjusted R^2 for the model with 4 parameters, we can decide to go with model with 3 parameters. 
+
+```{r}
+model6 <- lm(X3 ~ X4 + X6 + X7, data = data1)
+summary(model6)
+```
+
+Let's check assumptions for model6.
+
+
+a) Is the variance constant?
+
+```{r}
+plot(fitted(model6),residuals(model6),xlab="Fitted",ylab="Residuals")
+abline(h=0)
+
+```
+
+
+From the graph we can see that variance is constant.
+
+
+We can also check this using Breusch-Pagan test.
+Ho: Dispersion of residuals is constant.
+
+```{r}
+bptest(model6)
+```
+
+p-value is big (>0.05) => fail to reject H0 => There is enough evidence to say that variance of residuals is the same for all observations. 
+We confirmed the conclusion from the graph.
+
+b) resid ~ Normal Distribution ? 
+
+```{r}
+qqnorm(residuals(model6),ylab="Residuals")
+qqline(residuals(model6)) 
+```
+
+
+
+```{r}
+# library(stats)
+shapiro.test(residuals(model6))
+```
+
+p-value for Shapiro - Wilk's test is big (>0.05) => reject H0 => Residuals are normally distributed.
+
+Checking for the correlation of residuals.
+
+```{r}
+par(mfrow=c(1,2)) 
+plot(residuals(model6), ylab="Residuals") 
+abline(h=0, lwd=2) 
+cor(residuals(model6),seq(1:43))
+
+plot(residuals(model6)[-43], residuals(model6)[-1], xlab=expression(hat(epsilon)[i]), ylab=expression(hat(epsilon)[i+1]))  
+cor(residuals(model6)[-1], residuals(model6)[-43])
+```
+Correlation coefficient is close to 0 => there isn't correlation.
+
+We can also check correlation using Durbin-Watson test.
+
+```{r}
+dwtest(model6)
+```
+
+p > 0.05 => Fail to reject Ho => We confirmed that there is no correlation.
+
+model6 satisfies all assumptions.
+
+
+We have two models that satisfies all assumptions - model4 and model6. 
+
+Let's take a look at those models.
+
+```{r}
+summary(model4)
+```
+
+```{r}
+summary(model6)
+```
+
+Both models have the same independent variables, but model4 is on the transformed data.
+
+R^2 is bigger for model4 so this is the best model.
+
+The best model is y ~ X4 + X6 + X7.
+
+If we want to predict population of children (in percentage) in different parts of Denver we should use the model with transformed data and with next three predictors: percentage of schools that have free lunch, crime rate and percentage of changes in crime rate.
+
+
+
+
+
