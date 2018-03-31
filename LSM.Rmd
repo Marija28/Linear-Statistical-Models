@@ -1,8 +1,3 @@
----
-title: "Linear Statistical Analysis"
-output: html_notebook
----
-
 A little about the data. In this project we have the "Denver Neighborhoods" data where we have information from 44 different neighborhoods in Denver. 
 
 Information that we have:
