@@ -357,9 +357,13 @@ summary(model1)
 ```
 
 Calculation for fi:
+
 A*cos(fi) = a
+
 a -A*sin(fi) = b
+
 b/a = -A*sin(fi)/A*cos(fi) = -tg(fi)
+
 fi = arctg(-b/a)
 
 ```{r}
@@ -531,14 +535,14 @@ class(ro) # acf, but we need numerical
 ro <- -0.397 # now ro is numerical
 
 # ro = -teta/(1+teta^2)
-# teta^2*ro+ro+teta = 0
-# teta1/2 =  (-1(+-)sqrt(1-4*ro))/2*ro
+# theta^2*ro+ro+teta = 0
+# theta1/2 =  (-1(+-)sqrt(1-4*ro))/2*ro
 
-(teta1 <- (-1+sqrt(1-4*ro))/(2*ro)) # -0.7666577
-(teta2 <- (-1+-sqrt(1-4*ro))/(2*ro)) # 3.285549
+(theta1 <- (-1+sqrt(1-4*ro))/(2*ro)) # -0.7666577
+(theta2 <- (-1+-sqrt(1-4*ro))/(2*ro)) # 3.285549
 
-# autokovarijaciona f-ja: gama1 = -teta*sigma^2
-acf(diff(log_varve.ts),type  = "covariance")[1] 
+# autocovariation function: gama1 = -theta*sigma^2
+acf(diff(log_varve.ts), type  = "covariance")[1] 
 
 
 ```
