@@ -1,3 +1,10 @@
+---
+title: "Linear Statistical Analysis"
+---
+
+You can also check code and outputs here: https://rpubs.com/stana/LSM
+
+
 A little about the data. In this project we have the "Denver Neighborhoods" data where we have information from 44 different neighborhoods in Denver. 
 
 Information that we have:
