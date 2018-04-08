@@ -1,10 +1,9 @@
 ---
 title: "Time Series"
-output:
-  html_notebook: default
-  html_document: default
-  pdf_document: default
 ---
+
+You can also check the code and the outputs here: https://rpubs.com/stana/time_series
+
 Importing the data and making it into the time series format.
 
 
@@ -204,8 +203,8 @@ The red line represents forecast from 2006 to 2010.
 
 
 
-2. Let x_t = � + w_t + 0.8w_(t-1), where w_t is Gaussian White Noise Process.
-a) What is the standard error X_bar as estimator of �. And how much is it if the x_t is the Gaus White Noise Process?
+2. Let x_t = µ + w_t + 0.8w_(t-1), where w_t is Gaussian White Noise Process.
+a) What is the standard error X_bar as estimator of µ. And how much is it if the x_t is the Gaus White Noise Process?
 b) Simulate and plot both series.
 
 x1_t = mu + w_t + 0.8w_(t-1), w_t - white noise 
@@ -255,7 +254,7 @@ qplot(1:nrow(d1), x2, data = d1, xlab = "Index") +
 ```{r}
 # Xn = (sum(i=1 to n)[Xi])/n
 # 
-# Var(Xn) = E(Xn - µ)^2 = n^(-2)*sum(i=1 to n)sum(j=1 to n)[Cov(Xi ,Xj )] = 
+# Var(Xn) = E(Xn - Âµ)^2 = n^(-2)*sum(i=1 to n)sum(j=1 to n)[Cov(Xi ,Xj )] = 
 #         = n^(-2)*sum(i=1 to n)sum(j=1 to n)gamma_|i - j| =
 #         = n^(-2)*sum(i-j=-n to n)[(n - |i - j|)gamma_(i-j)] = 
 #         = n^(-1)*sum(h=-1 to n)[(1 -|h|/n)gamma(h)] = 
