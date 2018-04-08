@@ -1,0 +1,552 @@
+---
+title: "Time Series"
+output:
+  html_notebook: default
+  html_document: default
+  pdf_document: default
+---
+Importing the data and making it into the time series format.
+
+
+```{r}
+www <- "http://www.math.rs/p/files/69-global.txt"
+Global <- scan(www) 
+Global.ts <- ts(Global, frequency = 12,start = c(1856,1), end = c(2005, 12)) 
+class(Global.ts)
+
+```
+
+```{r}
+start(Global.ts)
+end(Global.ts)
+head(Global.ts)
+```
+
+Global.ts is monthly time series.
+
+
+Packages that we'll use.
+
+```{r}
+# install.packages("forecast")
+library(forecast)
+# install.packages("fpp2")
+library(fpp2)
+# install.packages("ggplot2")
+library(ggplot2)
+```
+
+
+
+```{r}
+Global.annual <- aggregate(Global.ts)/12 # making an yearly series 
+head(Global.annual)
+autoplot(Global.ts) +
+  autolayer(Global.annual) +
+  ggtitle("Monthly and yearly series together")+
+  xlab("Years")
+autoplot(Global.annual) +
+  labs(title =  "Yearly Time Series", x = "Years")
+
+boxplot(Global.ts~cycle(Global.ts), main = "Average temperature per months")
+```
+
+
+From the above graphs we can see that data values tend to increase over time => there is a trend.
+We can also see that the seasonal variation is not increasing with the increase of trend so we can make an additive model.
+
+```{r}
+Global.decom.add <- decompose(Global.ts) # additive model
+autoplot(Global.decom.add)
+
+# Trend and Seasonal Component together (taking random componen)
+Global.trend.seasonal <- Global.ts-Global.decom.add$random
+autoplot(Global.trend.seasonal) +
+  ggtitle("Trend and Seasonal component together")
+
+```
+
+There isn't a seasonal component, and there might be a trend at the end.
+
+
+Correlogram and some significant correlations.
+
+```{r}
+# we have missing values, so we first need to remove missing values
+ggAcf(na.omit(Global.decom.add$random))
+```
+
+Series of autocorrelations.
+```{r}
+print("Autocorrelation series: ")
+acf(na.omit(Global.decom.add$random))$acf 
+
+print("Autocorrelation in 0: ")
+acf(na.omit(Global.decom.add$random))$acf[1] 
+# The value of autocorrelation of function in 0 is 1, and that is actually the first member of the series. 
+```
+
+On y axis we can see values of autocorrelaction. The blue lines represents 5% significant level.
+Statistically significant are those correlations which go over the blue lines.
+
+```{r}
+autoplot(Global.decom.add)
+```
+
+
+Because there is no evidence of seasonal effects and there is no evidence of trend, too, 
+we can use exponential smoothing.
+
+```{r}
+(Global.hw <- HoltWinters(Global.ts,beta = FALSE,gamma = FALSE))
+plot(Global.hw)
+```
+The estimate value of alpha is about 0.42.
+
+We can estimate smoothing parameters for the Holt-Winters model by minimizing the one-step-ahead prediction errors.
+
+```{r}
+sqrt(Global.hw$SSE/length(Global.ts)) # minimised one-step-ahead prediction error
+# 0.1308554
+sd(Global.ts) # 0.273536
+# this is good, sd is bigger
+ggAcf(resid(Global.hw)) 
+# install.packages('forecast')
+# library(forecast)
+Global.hw.forecast <- forecast(Global.hw, h = 12*5)
+
+```
+
+
+Checking if HW is the right model for us.
+
+- Is there a seasonal correlation in series of residuals - correlogram?
+
+Ho: All correlations are equal to 0
+
+```{r}
+Box.test(Global.hw.forecast$residuals, lag = 20, type = "Ljung-Box")
+
+```
+
+p-value is small  => reject Ho
+There is a correlation, so this model isn't good.
+
+
+In the few last years it seems like there may be a trend, so we can try with that part.
+
+```{r}
+Global.ts1 <- window(Global.ts,start = 1975)
+Global.hw1 <- HoltWinters(Global.ts1,gamma = FALSE) 
+
+sqrt(Global.hw1$SSE/length(Global.ts))# minimised one-step-ahead prediction error
+sd(Global.ts)
+ggAcf(resid(Global.hw1)) 
+
+```
+
+Standard deviation is bigger, which is good.
+From the graph we see that correlations are not statistically significant.
+
+```{r}
+Global.hw1.forecast <- forecast(Global.hw1, h = 12*5)
+# h - for how many years we want to predict
+# head(Global.hw1.forecast)
+
+autoplot(Global.ts) +
+  autolayer(fitted(Global.hw1.forecast)) +
+  coord_cartesian(ylim = c(-1,1), xlim = c(1850,2010))
+
+```
+
+The red line represents predicted values from 1975 to 2005. 
+We see that red line is really close as black for the same years, which indicate that our model is good.
+
+Checking to see if HW is a good model.
+
+We need to check if residuals are normally distributed and if the variance of the residuals is constant.
+
+
+```{r}
+qqnorm(Global.hw1.forecast$residuals) 
+qqline(Global.hw1.forecast$residuals)
+```
+
+Residuals are normally distributed.
+
+
+```{r}
+autoplot(Global.hw1.forecast$residuals)  
+```
+
+Variance of the residuals is constant.
+
+Our model is good.
+
+Predict average months temperatures for next 5 years (from 2006 to 2010).
+
+```{r}
+Global.ts1p <- window(Global.ts, start = 2005) 
+Global.hw1p <- HoltWinters(Global.ts1p, gamma = FALSE)
+Global.hw1p.forecast <- forecast(Global.hw1p, h = 12*5)
+# head(Global.hw1p.forecast)
+```
+
+
+
+```{r}
+autoplot(Global.ts) +
+  autolayer(fitted(Global.hw1p.forecast)) +
+  coord_cartesian(ylim = c(-1,1), xlim = c(1850,2010))
+```
+
+The red line represents forecast from 2006 to 2010.
+
+
+
+2. Let x_t = µ + w_t + 0.8w_(t-1), where w_t is Gaussian White Noise Process.
+a) What is the standard error X_bar as estimator of µ. And how much is it if the x_t is the Gaus White Noise Process?
+b) Simulate and plot both series.
+
+x1_t = mu + w_t + 0.8w_(t-1), w_t - white noise 
+x2_t = mu + w_t
+
+Gaussian White Noise ~ N(0, sigma^2), set sigma = 1 => White Noise ~ N(0, 1)
+
+```{r}
+set.seed(123)
+white_noise <- rnorm(1000,0,1)
+# for example let mu = 5
+x1 <- c(5 + white_noise[1])
+for(i in 2:1000)
+  x1 <- c(x1, x1[1] + white_noise[i] + 0.8 * white_noise[i-1])
+head(x1)
+```
+
+
+```{r}
+x2 <- c(5 + white_noise[1])
+for(i in 2:1000)
+  x2 <- c(x2, 5 + white_noise[i])
+head(x2)
+
+```
+
+```{r}
+d = data.frame(x1) # ggplot needs data frame
+head(d)
+
+qplot(1:nrow(d), x1, data = d, xlab = "Index") +
+  geom_line()
+
+```
+
+```{r}
+d1 = data.frame(x2) 
+head(d1)
+
+qplot(1:nrow(d1), x2, data = d1, xlab = "Index") +
+  geom_line()
+
+```
+
+
+
+```{r}
+# Xn = (sum(i=1 to n)[Xi])/n
+# 
+# Var(Xn) = E(Xn - Âµ)^2 = n^(-2)*sum(i=1 to n)sum(j=1 to n)[Cov(Xi ,Xj )] = 
+#         = n^(-2)*sum(i=1 to n)sum(j=1 to n)gamma_|i - j| =
+#         = n^(-2)*sum(i-j=-n to n)[(n - |i - j|)gamma_(i-j)] = 
+#         = n^(-1)*sum(h=-1 to n)[(1 -|h|/n)gamma(h)] = 
+#         = gamma(0) /n + 2/n sum(h=1 to n-1)[(1 -|h|/n)*gamma(h)]
+# 
+# If x2_t proces Gaussian white noise then the variance of Xn is sigma(x2_t)^2/n.
+# 
+# SE = sqrt(Var(Xn)) - standard error
+
+mean(x1); mean(x2)
+par(mfrow = c(1,2))
+plot(x1, type = "l")
+abline(h = mean(x1), col = "blue")
+plot(x2, type = "l")
+abline(h = mean(x1), col = "yellow")
+par(mfrow = c(1,1))
+
+```
+
+
+
+3. a. Time Series Xt = A*cos(2*Pi*w*t + fi) + w_t has deterministic component - sine wave and additive component (let w_t be Gaussian white noise with variance sigma^2). Describe how A, fi and w effect on time series, simulate few series (for n = 500) with different parameters and plot their correlograms. 
+
+```{r}
+ts <- rep(0,500)
+t <- c(1:500)
+
+A <- c(0.1, 1, 50)
+fi <- c(1, 10, 20)
+w <- c(0.5, 1, 3)
+
+for(i in 1:3){
+  for(j in 1:500)
+    ts[j] <- A[i]*cos(2*3.14*w[3]*j + fi[1]) + rnorm(1,0,1)
+  acf(ts)
+}
+```
+
+For higher values of A correlation are bigger.
+
+```{r}
+for(i in 1:3){
+  for(j in 1:500)
+    ts[j] <- A[2]*cos(2*3.14*w[i]*j + fi[1]) + rnorm(1,0,1)
+  acf(ts)
+}
+
+```
+
+
+b. One example of the series from a. is x_t = s_t + w_t, where s_t = cos(2*pi*t/5) is periodic deterministic component and it can be model for seasonal component. Do Moving Average Technique to eliminate an effect of seasonal component. Plot x_t and add new series to the graph.
+
+```{r}
+w_t <- rnorm(1000,0,1)
+t <- c(1:100)
+x <- rep(0,100)
+for(i in 1:100)
+  x[i] <- (cos((2*pi*i)/5)+w_t[1])
+head(x)
+x.ts <- ts(x,freq = 5)  
+x1 <- aggregate(x.ts)/5
+autoplot(x.ts)+
+  autolayer(x1)
+```
+
+4. Time Series Xt = A*cos(2*Pi*w*t + fi) + w_t, if w = 1/8, estimate the other two parameters.Plot the initial time series and fitted model on the same graph. Check series of residuals - is it uncorrelated?
+
+
+```{r}
+regr1 <- scan("http://www.math.rs/p/files/69-regr1.txt")
+regr2 <- scan("http://www.math.rs/p/files/69-regr2.txt")
+regr1.ts <- ts(regr1)
+regr2.ts <- ts(regr2)
+
+# x_t= cos(2*pi*wt+fi)
+#    = A*cos(fi)*cos(2*pi*w*t)-A*sin(fi)*sin(2*pi*w*t) = 
+#    = a*cos(2*pi*w*t)+b*sin(2*pi*w*t)
+
+w <- 1/8
+t <- c(1:200)
+sin <- rep(0,200)
+cos <- rep(0,200)
+
+for (i in 1:200){
+  sin[i] = sin(2*pi*w*i)
+  cos[i] = cos(2*pi*w*i)
+}
+
+model1 <- lm(regr1.ts~cos+sin)
+summary(model1)
+```
+
+
+
+
+
+```{r}
+(a <- model1$coefficients[1]) # 0.02779225
+(b <- model1$coefficients[2]) # 1.206244
+```
+
+Calculation for fi:
+A*cos(fi) = a
+a -A*sin(fi) = b
+b/a = -A*sin(fi)/A*cos(fi) = -tg(fi)
+fi = arctg(-b/a)
+
+```{r}
+(fi <- atan(-b/a)) # -1.548064
+
+(A <- a/cos(fi)) # 1.206555
+
+plot(regr1.ts)
+lines(fitted(model1), col = "red")
+
+resid <- data.frame(model1$residuals)
+qplot(1:nrow(resid), model1$residuals, data = resid, xlab = "Index") +
+  geom_line()
+```
+
+
+```{r}
+ggAcf(model1$residuals)
+```
+It is uncorrelated.
+
+
+Doing all the same for regr2.ts.
+```{r}
+model2 <- lm(regr2.ts~cos+sin)
+summary(model2)
+(a <- model2$coefficients[1]) # 0.1227951 
+(b <- model2$coefficients[2]) # 1.401203
+(fi <- atan(-b/a)) # -1.483384
+(A <- a/cos(fi)) # 1.406574
+par(mfrow = c(2,1))
+plot(regr2.ts)
+lines(fitted(model2),col = "blue")
+plot(model2$residuals,type = "l") 
+par(mfrow = c(1,1))
+ggAcf(model2$residuals) 
+
+```
+From the graphs we can see that this model isn't better than the first one.
+Also this one is correlated.
+
+5. a. Use autocorrelation and cross - correlation function to explore "soi" and "rec" times series from package "asta" and see if there is some connection between those two series.
+
+
+
+
+```{r}
+# install.packages('astsa')
+library(astsa)
+help("soi")
+help("rec")
+```
+
+- "soi" data:
+
+Southern Oscillation Index
+
+This SOI is an indicator of the intensity of the El Nino or La Nina events.
+
+Description
+
+Southern Oscillation Index (SOI) for a period of 453 months ranging over the years 1950-1987.
+
+- "rec" data:
+
+Recruitment (number of new fish)
+
+Description
+
+Recruitment (number of new fish) for a period of 453 months ranging over the years 1950-1987.
+
+
+```{r}
+head(soi)
+class(soi)
+head(rec)
+class(rec)
+```
+
+```{r}
+autoplot(ts( cbind(soi, rec)  , start = c(1950,1), frequency = 12 ),
+         facets = FALSE)
+```
+
+Two series don't follow each other.
+
+```{r}
+acf(ts.union(soi,rec)) 
+
+ccfvalues <- ccf(soi,rec) 
+```
+
+Correlations are statistically significant => series are dependent.
+
+```{r}
+ccfvalues
+
+```
+
+
+b. Fit linear regression model to predict some values of one series using the other one.
+
+
+```{r}
+model2 <- lm(rec~soi)
+summary(model2)
+my_data <- data.frame(soi = c(-0.5, -0.3, 0, 0.25, 0.7)) 
+
+print("Predicted values: ")
+predict(model2, my_data)
+
+```
+
+
+6. In "asta" package there is a time series varve which has sedimentary deposits. Use this time series to reconstruct average annual temperature, because hot year leaves a bigger layer of sediments.
+
+a. See if the series is stationary, and if it isn't use transformations.
+
+```{r}
+help(varve)
+```
+Annual Varve Series
+
+Description
+
+Sedimentary deposits from one location in Massachusetts for 634 years, beginning nearly 12,000 years ago.
+
+```{r}
+head(varve)
+class(varve)
+
+ggAcf(varve) 
+```
+
+Correlations are slowly decreasing => it isn't stationary time series.
+
+We can try log transformation.
+
+```{r}
+log_varve.ts <- log(varve) 
+autoplot(varve) +
+  ggtitle("Varve Time Series")
+autoplot(log_varve.ts) +
+  ggtitle("Log Varve Time Series")
+```
+
+Log transformation helped with variance, now there is less variability - only between 0 and 5.
+
+c. Plot the correlogram of log transformed time series. What can you conclude? One more way to do transformation is to make a stationary series. Do that transformation on log transformed series. Can you tell from the correlogram from which model is that series? 
+
+```{r}
+ggAcf(log_varve.ts)
+```
+
+All the correlation are positive, slowly decreasing => it isn't stationary.
+There is a linear dependency between observations.
+
+```{r}
+ggAcf(diff(log_varve.ts)) 
+```
+
+The value in 0 is 1, and there is one more value that is above blue lines => this time series is from MA(1) model.
+
+d. Estimate two unknown model parameters using method of moments. 
+
+```{r}
+(ro <- acf(diff(log_varve.ts))[1]) 
+class(ro) # acf, but we need numerical
+ro <- -0.397 # now ro is numerical
+
+# ro = -teta/(1+teta^2)
+# teta^2*ro+ro+teta = 0
+# teta1/2 =  (-1(+-)sqrt(1-4*ro))/2*ro
+
+(teta1 <- (-1+sqrt(1-4*ro))/(2*ro)) # -0.7666577
+(teta2 <- (-1+-sqrt(1-4*ro))/(2*ro)) # 3.285549
+
+# autokovarijaciona f-ja: gama1 = -teta*sigma^2
+acf(diff(log_varve.ts),type  = "covariance")[1] 
+
+
+```
+
+-0.132
+-0.312 = -theta*sigma^2 , sigma^2>0
+
+=> We should use positive theta, which is theta2 = 3.28.
+
+
